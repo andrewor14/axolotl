@@ -1,12 +1,12 @@
 LOG_DIR_BASE="/home/andrewor/local/logs/axolotl"
 
 MODEL="${MODEL:-Llama3.2-3B}"
-CONFIG="${CONFIG:-examples/llama-3/3b-qat-fsdp2-nvfp4.yaml}"
 MICRO_BATCH_SIZE="${MICRO_BATCH_SIZE:-64}"
 LEARNING_RATE="${LEARNING_RATE:-2e-5}"
 ENABLE_QAT="${ENABLE_QAT:-true}"
 MAX_STEPS="${MAX_STEPS:--1}"
 QAT_SCHEME="${QAT_SCHEME:-nvfp4}"
+EVAL_TASKS="wikitext,bbh,mmlu_pro"
 
 if [[ "$QAT_SCHEME" == "nvfp4" ]]; then
     ACTIVATION_DTYPE="nvfp4"
@@ -35,10 +35,16 @@ fi
 
 if [[ "$MODEL" == "Llama3.2-3B" ]]; then
     BASE_MODEL="meta-llama/Llama-3.2-3B"
+    CONFIG="examples/llama-3/3b-qat-fsdp2-nvfp4.yaml"
 elif [[ "$MODEL" == "Llama3.1-8B" ]]; then
     BASE_MODEL="meta-llama/Llama-3.1-8B-Instruct"
+    CONFIG="examples/llama-3/3b-qat-fsdp2-nvfp4.yaml"  # is this right?
 elif [[ "$MODEL" == "Qwen3-8B" ]]; then
     BASE_MODEL="Qwen/Qwen3-8B"
+    CONFIG="examples/qwen3/salman-qwen3-8b.yml"
+elif [[ "$MODEL" == "Gemma3-12B" ]]; then
+    BASE_MODEL="google/gemma-3-12b-it"
+    CONFIG="examples/gemma3/salman-gemma3-12b.yml"
 else
     echo "Unknown MODEL $MODEL"
     exit 1
@@ -80,7 +86,6 @@ if [[ "$SKIP_EVAL" != "true" ]]; then
         --weight-dtype "$WEIGHT_DTYPE" \
         --group-size "$GROUP_SIZE" \
         > "${LOG_DIR}/quantize.log" 2>&1
-    CUDA_VISIBLE_DEVICES=2 accelerate launch -m lm_eval --model hf --model_args pretrained="${LOG_DIR}",weights_only=False --tasks wikitext --batch_size 2 > "${LOG_DIR}/eval_float.log" 2>&1 &
-    CUDA_VISIBLE_DEVICES=3 accelerate launch -m lm_eval --model hf --model_args pretrained="${LOG_DIR}/quantized",weights_only=False --tasks wikitext --batch_size 2 > "${LOG_DIR}/eval_quantized.log" 2>&1 &
-    wait
+    accelerate launch -m lm_eval --model hf --model_args pretrained="${LOG_DIR}",weights_only=False --tasks "$EVAL_TASKS" --batch_size auto > "${LOG_DIR}/eval_float.log" 2>&1
+    accelerate launch -m lm_eval --model hf --model_args pretrained="${LOG_DIR}/quantized",weights_only=False --tasks "$EVAL_TASKS" --batch_size auto > "${LOG_DIR}/eval_quantized.log" 2>&1
 fi
