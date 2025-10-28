@@ -86,6 +86,8 @@ if [[ "$SKIP_EVAL" != "true" ]]; then
         --weight-dtype "$WEIGHT_DTYPE" \
         --group-size "$GROUP_SIZE" \
         > "${LOG_DIR}/quantize.log" 2>&1
-    accelerate launch -m lm_eval --model hf --model_args pretrained="${LOG_DIR}",weights_only=False --tasks "$EVAL_TASKS" --batch_size auto > "${LOG_DIR}/eval_float.log" 2>&1
+    if [[ "$SKIP_EVAL_FLOAT" != "true" ]]; then
+        accelerate launch -m lm_eval --model hf --model_args pretrained="${LOG_DIR}",weights_only=False --tasks "$EVAL_TASKS" --batch_size auto > "${LOG_DIR}/eval_float.log" 2>&1
+    fi
     accelerate launch -m lm_eval --model hf --model_args pretrained="${LOG_DIR}/quantized",weights_only=False --tasks "$EVAL_TASKS" --batch_size auto > "${LOG_DIR}/eval_quantized.log" 2>&1
 fi
